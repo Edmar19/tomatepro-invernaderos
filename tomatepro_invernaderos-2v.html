@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TomatePro - Control Agrícola & Pérdidas</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        tomato: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            500: '#f43f5e',
+                            600: '#e11d48',
+                            700: '#be123c',
+                            800: '#9f1239',
+                        },
+                        greenhouse: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @media print {
+            header, nav, button, .no-print { display: none !important; }
+            main { padding: 0 !important; margin: 0 !important; }
+            body { background: white !important; }
+        }
+    </style>
+</head>
+<body class="h-full font-sans text-slate-800 flex flex-col antialiased selection:bg-tomato-500 selection:text-white bg-slate-50">
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="fixed top-16 right-4 left-4 sm:left-auto sm:w-80 z-50 pointer-events-none space-y-2"></div>
+
+    <!-- TOP APP BAR -->
+    <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-tomato-500 to-tomato-700 flex items-center justify-center text-white text-xl shadow-inner font-bold">
+                    <i class="fa-solid fa-apple-whole"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-black text-lg tracking-tight leading-none text-white">TomatePro</h1>
+                        <span class="bg-tomato-500/20 text-tomato-400 border border-tomato-500/30 text-[9px] font-bold px-1.5 py-0.2 rounded uppercase">v2.0 Pro</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 font-medium mt-0.5">Control Agrícola & Inteligencia de Pérdidas</p>
+                </div>
+            </div>
+
+            <!-- Header Buttons -->
+            <div class="flex items-center gap-2">
+                <button onclick="promptResetData()" title="Gestión de Datos y Respaldos" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-slate-700">
+                    <i class="fa-solid fa-database text-amber-400"></i>
+                    <span class="hidden md:inline">Datos & Exportar</span>
+                </button>
+                <button onclick="openModal('quickActionModal')" class="bg-gradient-to-r from-greenhouse-600 to-greenhouse-500 hover:from-greenhouse-500 hover:to-greenhouse-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow flex items-center gap-2 transition active:scale-95">
+                    <i class="fa-solid fa-circle-plus text-sm"></i>
+                    <span class="hidden sm:inline">Nuevo Registro</span>
+                    <span class="sm:hidden">Nuevo</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 pb-24 overflow-y-auto">
+        
+        <!-- ==================== 1. DASHBOARD VIEW ==================== -->
+        <section id="view-dashboard" class="space-y-5">
+            
+            <!-- Dynamic Alert Banners Container -->
+            <div id="dash-alerts-container" class="space-y-3">
+                <!-- Populated dynamically by JS -->
+            </div>
+
+            <!-- Key Metric Cards Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <!-- Card 1 -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition">
+                    <div class="flex justify-between items-center text-slate-400 mb-1">
+                        <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Cosecha Tot.</span>
+                        <i class="fa-solid fa-basket-shopping text-emerald-500"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-slate-800" id="dash-harvest-total">0 <span class="text-xs font-normal text-slate-500">kg</span></p>
+                        <p class="text-[11px] font-bold text-emerald-600 mt-1 flex items-center gap-1" id="dash-yield-m2">
+                            <i class="fa-solid fa-chart-simple"></i> 0 kg/m²
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition">
+                    <div class="flex justify-between items-center text-slate-400 mb-1">
+                        <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Ventas Totales</span>
+                        <i class="fa-solid fa-hand-holding-dollar text-blue-500"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-slate-800" id="dash-sales-total">$0</p>
+                        <p class="text-[11px] font-semibold text-slate-500 mt-1" id="dash-avg-price">Precio Prom: <span class="font-bold text-slate-700">$0/kg</span></p>
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition">
+                    <div class="flex justify-between items-center text-slate-400 mb-1">
+                        <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Merma (Pérdida)</span>
+                        <i class="fa-solid fa-trash-can text-tomato-500"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-tomato-600" id="dash-loss-total">0 <span class="text-xs font-normal text-slate-500">kg</span></p>
+                        <p class="text-[11px] font-bold text-tomato-600 mt-1" id="dash-loss-percent">0% del total</p>
+                    </div>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition">
+                    <div class="flex justify-between items-center text-slate-400 mb-1">
+                        <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Ganancia Neta</span>
+                        <i class="fa-solid fa-chart-line text-greenhouse-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-slate-800" id="dash-net-profit">$0</p>
+                        <p class="text-[11px] font-bold text-greenhouse-600 mt-1" id="dash-roi-est">ROI Estimado: 0%</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Status of Active Greenhouses -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-warehouse text-slate-500"></i> Estado Agrometeorológico de Naves
+                    </h3>
+                    <button onclick="switchTab('invernaderos')" class="text-xs font-bold text-greenhouse-600 hover:underline">Ver todas &rarr;</button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="dash-greenhouse-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="font-extrabold text-slate-800 text-sm">Rendimiento Financiero Semanal</h3>
+                        <p class="text-xs text-slate-400">Comparativa Ingresos por Venta vs. Gastos Operativos (MXN)</p>
+                    </div>
+                    <span class="bg-slate-100 text-slate-600 text-[11px] px-2.5 py-1 rounded-full font-bold">Ciclo Actual</span>
+                </div>
+                <div class="h-60 relative w-full">
+                    <canvas id="financialChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Recovery & Best Practice Recommendations -->
+            <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-4 shadow-md">
+                <div class="flex items-center gap-2 text-tomato-400 font-bold text-xs uppercase tracking-wider mb-1">
+                    <i class="fa-solid fa-shield-halved"></i> Estrategia Para Evitar Pérdidas
+                </div>
+                <h3 class="font-black text-base text-white">Recomendaciones Agronómicas Clave</h3>
+                <ul class="mt-3 space-y-2 text-xs text-slate-300">
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-circle-check text-greenhouse-500 mt-0.5"></i>
+                        <span><strong>Optimización DPV (0.8 - 1.2 kPa):</strong> Si el Déficit de Presión de Vapor es muy bajo (&lt;0.5), abre ventanas para evitar Botrytis. Si es muy alto (&gt;1.5), encala el techo o enciende nebulización.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-circle-check text-greenhouse-500 mt-0.5"></i>
+                        <span><strong>Manejo de Nutrición (Calcio):</strong> La Pudrición Apical ("Nalgita") ocurre por alta salinidad o transpiración bloqueada, no siempre por falta de Ca en el suelo.</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <i class="fa-solid fa-circle-check text-greenhouse-500 mt-0.5"></i>
+                        <span><strong>Seguridad de Cosecha:</strong> Revisa el contador PHI en Sanidad antes de cosechar para asegurar fruto libre de trazas de agroquímicos.</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- ==================== 2. INVERNADEROS VIEW ==================== -->
+        <section id="view-invernaderos" class="space-y-4 hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="font-black text-slate-800 text-lg">Invernaderos y Lotes</h2>
+                    <p class="text-xs text-slate-500">Monitoreo agronómico y microclimático por nave</p>
+                </div>
+                <button onclick="openCreateGreenhouseModal()" class="bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-plus text-xs"></i> Nueva Nave
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4" id="full-greenhouse-container">
+                <!-- Dynamically rendered greenhouses with climate inputs -->
+            </div>
+        </section>
+
+        <!-- ==================== 3. COSECHA Y MERMA VIEW ==================== -->
+        <section id="view-cosecha" class="space-y-4 hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="font-black text-slate-800 text-lg">Cosecha y Control de Merma</h2>
+                    <p class="text-xs text-slate-500">Diferenciación por calidades y diagnóstico de fruto desechado</p>
+                </div>
+                <button onclick="openCreateHarvestModal()" class="bg-tomato-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-tomato-700 transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-apple-whole"></i> Registrar Cosecha
+                </button>
+            </div>
+
+            <!-- Merma breakdown highlight -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                <h3 class="font-bold text-slate-800 text-sm mb-3">Distribución Total de Producción (Kg)</h3>
+                <div class="h-48 relative">
+                    <canvas id="harvestPieChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Search & Filters -->
+            <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-2 items-center justify-between">
+                <div class="relative w-full sm:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                    <input type="text" id="harvest-search" oninput="renderHarvestView()" placeholder="Buscar cliente, causa..." class="w-full bg-slate-50 pl-8 pr-3 py-1.5 rounded-xl text-xs font-medium focus:outline-none border border-slate-200">
+                </div>
+                <select id="harvest-filter-gh" onchange="renderHarvestView()" class="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700">
+                    <option value="ALL">Todas las Naves</option>
+                </select>
+            </div>
+
+            <!-- Harvest History Log -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h3 class="font-bold text-slate-800 text-sm">Histórico de Cosechas</h3>
+                    <span class="text-xs font-bold text-slate-500" id="harvest-count">0 registros</span>
+                </div>
+                <div class="divide-y divide-slate-100 text-xs" id="harvest-log-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 4. FINANZAS Y RENTABILIDAD VIEW ==================== -->
+        <section id="view-finanzas" class="space-y-4 hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="font-black text-slate-800 text-lg">Finanzas y Gastos Operativos</h2>
+                    <p class="text-xs text-slate-500">Control estricto de insumos, jornales e infraestructura</p>
+                </div>
+                <button onclick="openCreateExpenseModal()" class="bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> Registrar Gasto
+                </button>
+            </div>
+
+            <!-- Summary Box -->
+            <div class="grid grid-cols-3 gap-2">
+                <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
+                    <span class="text-[10px] uppercase tracking-wider font-extrabold text-emerald-600 block">Ventas</span>
+                    <span class="text-base sm:text-lg font-black text-emerald-700" id="fin-sales">$0</span>
+                </div>
+                <div class="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-center">
+                    <span class="text-[10px] uppercase tracking-wider font-extrabold text-rose-600 block">Gastos</span>
+                    <span class="text-base sm:text-lg font-black text-rose-700" id="fin-expenses">$0</span>
+                </div>
+                <div class="bg-blue-50 border border-blue-100 rounded-2xl p-3 text-center">
+                    <span class="text-[10px] uppercase tracking-wider font-extrabold text-blue-600 block">Balance Neta</span>
+                    <span class="text-base sm:text-lg font-black text-blue-700" id="fin-balance">$0</span>
+                </div>
+            </div>
+
+            <!-- Expense Category Chart -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                <h3 class="font-bold text-slate-800 text-sm mb-3">Distribución de Egresos por Categoría</h3>
+                <div class="h-48 relative">
+                    <canvas id="expensePieChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Expenses List Search & Filter -->
+            <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-2 items-center justify-between">
+                <div class="relative w-full sm:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                    <input type="text" id="expense-search" oninput="renderExpensesView()" placeholder="Buscar concepto o proveedor..." class="w-full bg-slate-50 pl-8 pr-3 py-1.5 rounded-xl text-xs font-medium focus:outline-none border border-slate-200">
+                </div>
+                <select id="expense-filter-cat" onchange="renderExpensesView()" class="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700">
+                    <option value="ALL">Todas las Categorías</option>
+                    <option value="Fertilizantes / Solución Nutritiva">Fertilizantes</option>
+                    <option value="Agroquímicos / Plaguicidas">Agroquímicos</option>
+                    <option value="Mano de Obra (Deshoje/Deshije/Cosecha)">Mano de Obra</option>
+                    <option value="Semilla / Plántula">Plántula</option>
+                    <option value="Empaque / Cajas">Empaque</option>
+                    <option value="Mantenimiento de Infraestructura">Mantenimiento</option>
+                </select>
+            </div>
+
+            <!-- Expenses List -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h3 class="font-bold text-slate-800 text-sm">Registro de Egresos</h3>
+                    <span class="text-xs font-bold text-slate-500" id="expense-count">0 registros</span>
+                </div>
+                <div class="divide-y divide-slate-100 text-xs" id="expense-log-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Calculator Component -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-calculator text-greenhouse-600"></i> Calculadora de Precio Mínimo (Punto de Equilibrio)
+                </h3>
+                <p class="text-xs text-slate-500">Determina el precio umbral al que debes comercializar tu jitomate para cubrir la totalidad de costos fijados.</p>
+                
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">Costos Totales ($ MXN)</label>
+                        <input type="number" id="calc-costs" value="42800" oninput="calculateBreakEven()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-greenhouse-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">Kg Proyectados/Cosechados</label>
+                        <input type="number" id="calc-kg" value="4850" oninput="calculateBreakEven()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-greenhouse-500">
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 text-white rounded-xl p-3.5 text-center mt-2">
+                    <span class="text-xs text-slate-400 block">Precio Mínimo de Equilibrio Requerido:</span>
+                    <span class="text-2xl font-black text-emerald-400" id="calc-result">$8.82 / kg</span>
+                    <span class="text-[10px] text-slate-400 block mt-1">Toda venta sobre este precio genera utilidad libre directa.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 5. BITÁCORA FITOSANITARIA Y AGRONÓMICA ==================== -->
+        <section id="view-agronomia" class="space-y-4 hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="font-black text-slate-800 text-lg">Bitácora Fitosanitaria</h2>
+                    <p class="text-xs text-slate-500">Aplicaciones agroquímicas y control estricto de PHI</p>
+                </div>
+                <button onclick="openCreatePesticideModal()" class="bg-purple-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-purple-800 transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-spray-can"></i> Registrar Aplicación
+                </button>
+            </div>
+
+            <!-- Active Safety Intervals (PHI) -->
+            <div class="bg-purple-900 text-white rounded-2xl p-4 shadow-md space-y-2">
+                <div class="flex items-center gap-2 text-purple-300 font-bold text-xs uppercase tracking-wider">
+                    <i class="fa-solid fa-clock font-bold"></i> Días de Carencia Activos (Intervalo Pre-Cosecha - PHI)
+                </div>
+                <p class="text-xs text-purple-200">Garantiza fruto 100% inocuo y evita devoluciones de embarque en comercializadoras.</p>
+
+                <div class="space-y-2 pt-2" id="active-phi-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Tank Mix Calculator Tool -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
+                <h3 class="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-flask text-purple-600"></i> Calculadora Agronómica de Mezcla para Tanque
+                </h3>
+                <p class="text-xs text-slate-500">Calcula la dosis exacta de agroquímico según la capacidad de tu tanque o tambo de fumigación.</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Capacidad Tanque (L)</label>
+                        <input type="number" id="tank-capacity" value="200" oninput="calculateTankDose()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-800">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Dosis Recomendada</label>
+                        <input type="number" step="0.1" id="tank-dose-rate" value="1.5" oninput="calculateTankDose()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-800">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Unidad Dosis</label>
+                        <select id="tank-unit" onchange="calculateTankDose()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold text-slate-800">
+                            <option value="ml/L">ml / Litro</option>
+                            <option value="g/L">g / Litro</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="bg-purple-50 border border-purple-100 p-2.5 rounded-xl text-center">
+                    <span class="text-[11px] text-purple-700 font-bold block">Cantidad Total a Agregar al Tanque:</span>
+                    <span class="text-lg font-black text-purple-900" id="tank-result">300 ml (0.30 L)</span>
+                </div>
+            </div>
+
+            <!-- Phytosanitary Log -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h3 class="font-bold text-slate-800 text-sm">Histórico de Tratamientos</h3>
+                    <span class="text-xs font-bold text-slate-500" id="pest-log-count">0 aplicados</span>
+                </div>
+                <div class="divide-y divide-slate-100 text-xs" id="pest-log-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Guía rápida plagas del jitomate -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
+                <h3 class="font-bold text-slate-800 text-sm">Guía de Diagnóstico Rápido de Plagas y Enfermedades</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="font-bold text-tomato-600 block">Mosquita Blanca (Bemisia tabaci)</span>
+                        <p class="text-slate-600 mt-0.5">Vector de virus (TYLCV). Aplicar Jabón potásico o Imidacloprid/Flupyradifurone.</p>
+                    </div>
+                    <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="font-bold text-amber-600 block">Polilla del Tomate (Tuta absoluta)</span>
+                        <p class="text-slate-600 mt-0.5">Galerías en hojas y frutos perforados. Control con trampas de luz/feromona + Bacillus thuringiensis.</p>
+                    </div>
+                    <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="font-bold text-blue-600 block">Botrytis / Moho Gris</span>
+                        <p class="text-slate-600 mt-0.5">Pudrición blanda en flor y fruto con alta humedad (&gt;85% HR). Ventilar nave para regular DPV.</p>
+                    </div>
+                    <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="font-bold text-slate-700 block">Pudrición Apical ("Nalgita")</span>
+                        <p class="text-slate-600 mt-0.5">Deficiencia de Calcio por desbalance hídrico o salinidad (CE elevada &gt;3.5 mS/cm).</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- BOTTOM NAVIGATION BAR (Mobile First) -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-30 px-2 py-2 shadow-lg">
+        <div class="max-w-4xl mx-auto flex justify-around items-center">
+            
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn flex flex-col items-center gap-1 text-greenhouse-600 transition">
+                <i class="fa-solid fa-chart-pie text-lg"></i>
+                <span class="text-[10px] font-bold">Inicio</span>
+            </button>
+
+            <button onclick="switchTab('invernaderos')" id="nav-invernaderos" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-700 transition">
+                <i class="fa-solid fa-warehouse text-lg"></i>
+                <span class="text-[10px] font-bold">Naves</span>
+            </button>
+
+            <button onclick="switchTab('cosecha')" id="nav-cosecha" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-700 transition">
+                <i class="fa-solid fa-basket-shopping text-lg"></i>
+                <span class="text-[10px] font-bold">Cosecha</span>
+            </button>
+
+            <button onclick="switchTab('finanzas')" id="nav-finanzas" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-700 transition">
+                <i class="fa-solid fa-wallet text-lg"></i>
+                <span class="text-[10px] font-bold">Finanzas</span>
+            </button>
+
+            <button onclick="switchTab('agronomia')" id="nav-agronomia" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-700 transition">
+                <i class="fa-solid fa-flask-vial text-lg"></i>
+                <span class="text-[10px] font-bold">Sanidad</span>
+            </button>
+
+        </div>
+    </nav>
+
+    <!-- ==================== MODALS SECTION ==================== -->
+
+    <!-- Modal 1: Quick Action Launcher -->
+    <div id="quickActionModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden transition-opacity">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-extrabold text-slate-800 text-base">¿Qué deseas registrar?</h3>
+                <button onclick="closeModal('quickActionModal')" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="closeModal('quickActionModal'); openCreateHarvestModal()" class="p-4 bg-tomato-50 hover:bg-tomato-100 border border-tomato-200 rounded-2xl flex flex-col items-center text-center gap-2 transition group">
+                    <div class="w-10 h-10 rounded-full bg-tomato-600 text-white flex items-center justify-center text-lg group-hover:scale-110 transition shadow">
+                        <i class="fa-solid fa-apple-whole"></i>
+                    </div>
+                    <span class="text-xs font-bold text-tomato-800">Nueva Cosecha / Merma</span>
+                </button>
+
+                <button onclick="closeModal('quickActionModal'); openCreateExpenseModal()" class="p-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl flex flex-col items-center text-center gap-2 transition group">
+                    <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-lg group-hover:scale-110 transition shadow">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <span class="text-xs font-bold text-emerald-800">Gasto / Insumo</span>
+                </button>
+
+                <button onclick="closeModal('quickActionModal'); openCreatePesticideModal()" class="p-4 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-2xl flex flex-col items-center text-center gap-2 transition group">
+                    <div class="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center text-lg group-hover:scale-110 transition shadow">
+                        <i class="fa-solid fa-spray-can"></i>
+                    </div>
+                    <span class="text-xs font-bold text-purple-800">Aplicación Plaguicida</span>
+                </button>
+
+                <button onclick="closeModal('quickActionModal'); openCreateGreenhouseModal()" class="p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl flex flex-col items-center text-center gap-2 transition group">
+                    <div class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center text-lg group-hover:scale-110 transition shadow">
+                        <i class="fa-solid fa-warehouse"></i>
+                    </div>
+                    <span class="text-xs font-bold text-slate-800">Nueva Nave / Lote</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Harvest & Waste Entry Form -->
+    <div id="harvestModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-extrabold text-slate-800 text-base" id="harvest-modal-title">Registrar Cosecha y Merma</h3>
+                <button onclick="closeModal('harvestModal')" class="text-slate-400 p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="harvestForm" onsubmit="handleSaveHarvest(event)" class="space-y-3">
+                <input type="hidden" id="harvest-edit-id" value="">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Invernadero / Nave</label>
+                    <select id="harvest-gh-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-tomato-500" required>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Jitomate 1ra Calidad (Kg)</label>
+                        <input type="number" step="0.1" id="harvest-kg-1ra" placeholder="0.0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Precio 1ra ($/Kg)</label>
+                        <input type="number" step="0.5" id="harvest-price-1ra" value="22" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Jitomate 2da Calidad (Kg)</label>
+                        <input type="number" step="0.1" id="harvest-kg-2da" value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Precio 2da ($/Kg)</label>
+                        <input type="number" step="0.5" id="harvest-price-2da" value="12" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800">
+                    </div>
+                </div>
+
+                <div class="bg-tomato-50 border border-tomato-200 rounded-xl p-3 space-y-2">
+                    <span class="text-xs font-extrabold text-tomato-800 block flex items-center gap-1">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Merma / Fruto Desechado (Pérdida)
+                    </span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-tomato-700 mb-1">Kg Tirados</label>
+                            <input type="number" step="0.1" id="harvest-kg-merma" value="0" class="w-full bg-white border border-tomato-200 rounded-lg p-2 text-xs font-bold text-tomato-800">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-tomato-700 mb-1">Causa Principal</label>
+                            <select id="harvest-merma-cause" class="w-full bg-white border border-tomato-200 rounded-lg p-2 text-xs font-medium text-slate-700">
+                                <option value="Ninguna">Sin Merma</option>
+                                <option value="Pudrición Apical (Nalgita)">Pudrición Apical (Nalgita)</option>
+                                <option value="Botrytis / Moho">Botrytis / Moho</option>
+                                <option value="Daño por Tuta / Gusano">Daño por Tuta / Gusano</option>
+                                <option value="Fruto Rajado (Desbalance riego)">Fruto Rajado</option>
+                                <option value="Deforme / Quemado del Sol">Deforme / Quemado</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Comprador / Destino</label>
+                    <input type="text" id="harvest-buyer" placeholder="ej. Central de Abastos / Bodega 14" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-slate-800">
+                </div>
+
+                <button type="submit" id="harvest-submit-btn" class="w-full bg-tomato-600 hover:bg-tomato-700 text-white font-bold py-3 rounded-xl text-xs transition shadow-md">
+                    Guardar Registro de Cosecha
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Expense Form -->
+    <div id="expenseModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-extrabold text-slate-800 text-base" id="expense-modal-title">Registrar Gasto de Cultivo</h3>
+                <button onclick="closeModal('expenseModal')" class="text-slate-400 p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="expenseForm" onsubmit="handleSaveExpense(event)" class="space-y-3">
+                <input type="hidden" id="expense-edit-id" value="">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Categoría del Gasto</label>
+                    <select id="exp-category" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-800 focus:outline-none" required>
+                        <option value="Fertilizantes / Solución Nutritiva">Fertilizantes / Nutrición</option>
+                        <option value="Agroquímicos / Plaguicidas">Agroquímicos / Plaguicidas</option>
+                        <option value="Mano de Obra (Deshoje/Deshije/Cosecha)">Mano de Obra (Jornales)</option>
+                        <option value="Semilla / Plántula">Semilla / Plántula</option>
+                        <option value="Empaque / Cajas">Empaque / Cajas</option>
+                        <option value="Gas / Combustible Invernadero">Gas / Combustible</option>
+                        <option value="Mantenimiento de Infraestructura">Mantenimiento Nave</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Monto ($ MXN)</label>
+                        <input type="number" step="0.5" id="exp-amount" placeholder="0.00" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Invernadero Destino</label>
+                        <select id="exp-gh-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-800">
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Descripción / Proveedor</label>
+                    <input type="text" id="exp-desc" placeholder="ej. Compra Nitrato de Calcio 25kg" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-slate-800" required>
+                </div>
+
+                <button type="submit" id="expense-submit-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs transition shadow-md">
+                    Guardar Gasto
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 4: Pesticide Form & Safety Period -->
+    <div id="pesticideModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-extrabold text-slate-800 text-base" id="pesticide-modal-title">Aplicación de Agroquímicos</h3>
+                <button onclick="closeModal('pesticideModal')" class="text-slate-400 p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="pesticideForm" onsubmit="handleSavePesticide(event)" class="space-y-3">
+                <input type="hidden" id="pest-edit-id" value="">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Producto / Ingrediente Activo</label>
+                    <input type="text" id="pest-product" placeholder="ej. Sivanto Prime / Flupyradifurone" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800" required>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Plaga u Objetivo</label>
+                        <input type="text" id="pest-target" placeholder="ej. Mosquita blanca" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-slate-800" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Días Carencia (PHI)</label>
+                        <input type="number" id="pest-phi" value="3" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-purple-700" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Invernadero Aplicado</label>
+                    <select id="pest-gh-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-800">
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Dosis y Notas de Seguridad</label>
+                    <input type="text" id="pest-notes" placeholder="ej. 1.5 ml/L de agua. Usar mascarilla." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-slate-800">
+                </div>
+
+                <button type="submit" id="pest-submit-btn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 rounded-xl text-xs transition shadow-md">
+                    Guardar y Activar Carencia
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 5: Add/Edit Greenhouse -->
+    <div id="addGreenhouseModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md p-5 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-extrabold text-slate-800 text-base" id="gh-modal-title">Registrar Nueva Nave</h3>
+                <button onclick="closeModal('addGreenhouseModal')" class="text-slate-400 p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="greenhouseForm" onsubmit="handleSaveGreenhouse(event)" class="space-y-3">
+                <input type="hidden" id="gh-edit-id" value="">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nombre / Identificador Nave</label>
+                    <input type="text" id="gh-name" placeholder="ej. Nave 3 - Saladette" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800" required>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Variedad Jitomate</label>
+                        <select id="gh-variety" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-800">
+                            <option value="Saladette Determinado">Saladette Determinado</option>
+                            <option value="Saladette Indeterminado">Saladette Indeterminado</option>
+                            <option value="Bola / Tomate Grande">Bola / Tomate Grande</option>
+                            <option value="Cherry / Grape">Cherry / Grape</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Superficie (m²)</label>
+                        <input type="number" id="gh-area" value="2500" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Etapa de Cultivo</label>
+                        <select id="gh-stage" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-800">
+                            <option value="Plántula / Trasplante">Plántula / Trasplante</option>
+                            <option value="Desarrollo Vegetativo">Desarrollo Vegetativo</option>
+                            <option value="Floración y Amarre">Floración y Amarre</option>
+                            <option value="Cosecha Activa">Cosecha Activa</option>
+                            <option value="Final de Ciclo">Final de Ciclo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Nº Plantas</label>
+                        <input type="number" id="gh-plants" value="6500" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800" required>
+                    </div>
+                </div>
+
+                <!-- Climate Readings -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                    <span class="text-[11px] font-bold text-slate-700 block">Lecturas de Clima y Suelo Actuales</span>
+                    <div class="grid grid-cols-4 gap-1.5">
+                        <div>
+                            <label class="block text-[9px] font-bold text-slate-500">Temp °C</label>
+                            <input type="number" step="0.1" id="gh-temp" value="25.0" class="w-full bg-white border border-slate-200 rounded p-1 text-xs font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-bold text-slate-500">Humedad %</label>
+                            <input type="number" id="gh-humidity" value="70" class="w-full bg-white border border-slate-200 rounded p-1 text-xs font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-bold text-slate-500">pH Suelo</label>
+                            <input type="number" step="0.1" id="gh-ph" value="6.0" class="w-full bg-white border border-slate-200 rounded p-1 text-xs font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-bold text-slate-500">CE (mS/cm)</label>
+                            <input type="number" step="0.1" id="gh-ec" value="2.5" class="w-full bg-white border border-slate-200 rounded p-1 text-xs font-bold">
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="gh-submit-btn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition shadow-md">
+                    Guardar Nave
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 6: Delete Confirmation -->
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4 text-center shadow-xl">
+            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <div>
+                <h3 class="font-extrabold text-slate-800 text-base" id="delete-modal-title">¿Eliminar registro?</h3>
+                <p class="text-xs text-slate-500 mt-1" id="delete-modal-desc">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-2">
+                <button onclick="closeModal('deleteConfirmModal')" class="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+                    Cancelar
+                </button>
+                <button id="confirm-delete-btn" onclick="executeDeleteAction()" class="py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow">
+                    Sí, Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 7: Data Management & Export/Import -->
+    <div id="resetDataModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl w-full max-w-md p-5 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-database text-amber-500"></i> Gestión de Datos & Respaldos
+                </h3>
+                <button onclick="closeModal('resetDataModal')" class="text-slate-400 p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="space-y-3">
+                <!-- Export CSV -->
+                <div class="p-3 rounded-xl border border-blue-200 bg-blue-50 flex flex-col gap-2">
+                    <span class="font-extrabold text-xs text-blue-900 flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-excel text-blue-600"></i> Exportar Reporte a CSV (Excel)
+                    </span>
+                    <p class="text-[11px] text-blue-700">Descarga la bitácora completa de cosechas y gastos para abrir en Excel o Google Sheets.</p>
+                    <div class="flex gap-2">
+                        <button onclick="exportToCSV('harvests')" class="flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition">
+                            CSV Cosechas
+                        </button>
+                        <button onclick="exportToCSV('expenses')" class="flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition">
+                            CSV Gastos
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Export/Import JSON -->
+                <div class="p-3 rounded-xl border border-slate-200 bg-slate-50 flex flex-col gap-2">
+                    <span class="font-extrabold text-xs text-slate-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-floppy-disk text-slate-600"></i> Copia de Seguridad JSON
+                    </span>
+                    <p class="text-[11px] text-slate-500">Guarda una copia exacta de la app o restáurala en otro celular.</p>
+                    <div class="flex gap-2">
+                        <button onclick="downloadJSONBackup()" class="flex-1 bg-slate-800 text-white text-xs font-bold py-2 rounded-lg hover:bg-slate-700 transition">
+                            Descargar Copia
+                        </button>
+                        <label class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold py-2 rounded-lg text-center cursor-pointer transition">
+                            Restaurar JSON
+                            <input type="file" accept=".json" onchange="importJSONBackup(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <hr class="border-slate-100">
+
+                <button onclick="clearAllData()" class="w-full text-left p-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 transition flex items-start gap-3">
+                    <i class="fa-solid fa-trash-arrow-up text-rose-600 text-lg mt-0.5"></i>
+                    <div>
+                        <span class="font-extrabold text-xs text-rose-800 block">Borrar Todos los Datos (Iniciar en Blanco)</span>
+                        <span class="text-[11px] text-rose-600">Elimina todas las muestras e invernaderos para empezar desde cero.</span>
+                    </div>
+                </button>
+
+                <button onclick="restoreDemoData()" class="w-full text-left p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition flex items-start gap-3">
+                    <i class="fa-solid fa-rotate-left text-slate-600 text-lg mt-0.5"></i>
+                    <div>
+                        <span class="font-extrabold text-xs text-slate-800 block">Restablecer Datos Muestra</span>
+                        <span class="text-[11px] text-slate-500">Carga nuevamente los datos ficticios de demostración.</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC & ENGINE -->
+    <script>
+        const DEFAULT_DATA = {
+            greenhouses: [
+                { id: 'gh-1', name: 'Nave 1 - Saladette', variety: 'Saladette Indet.', area: 2500, plants: 6200, stage: 'Cosecha Activa', temp: 24.5, humidity: 68, ph: 6.2, ec: 2.8 },
+                { id: 'gh-2', name: 'Nave 2 - Tomate Bola', variety: 'Bola DRP', area: 1800, plants: 4500, stage: 'Floración y Amarre', temp: 28.5, humidity: 82, ph: 5.9, ec: 3.1 }
+            ],
+            harvests: [
+                { id: 1, ghId: 'gh-1', date: '2026-08-03', kg1ra: 1200, price1ra: 21.5, kg2da: 250, price2da: 13.0, kgMerma: 80, mermaCause: 'Pudrición Apical (Nalgita)', buyer: 'Bodega Central #12' },
+                { id: 2, ghId: 'gh-1', date: '2026-07-28', kg1ra: 1450, price1ra: 20.0, kg2da: 180, price2da: 12.0, kgMerma: 45, mermaCause: 'Fruto Rajado (Desbalance riego)', buyer: 'Comercializadora del Norte' },
+                { id: 3, ghId: 'gh-2', date: '2026-07-21', kg1ra: 980, price1ra: 22.0, kg2da: 120, price2da: 14.0, kgMerma: 110, mermaCause: 'Botrytis / Moho', buyer: 'Supermercado Local' }
+            ],
+            expenses: [
+                { id: 1, ghId: 'gh-1', category: 'Fertilizantes / Solución Nutritiva', amount: 14500, desc: 'Nitrato de Calcio + Sulfato de Magnesio', date: '2026-08-01' },
+                { id: 2, ghId: 'gh-1', category: 'Mano de Obra (Deshoje/Deshije/Cosecha)', amount: 12000, desc: 'Pago de 4 jornaleros semana 31', date: '2026-08-02' },
+                { id: 3, ghId: 'gh-2', category: 'Agroquímicos / Plaguicidas', amount: 3800, desc: 'Jabón potásico + Bacillus para Tuta', date: '2026-07-29' }
+            ],
+            pesticides: [
+                { id: 1, ghId: 'gh-2', product: 'Sivanto Prime', target: 'Mosquita Blanca', date: '2026-08-03', phi: 3, notes: 'Aplicado por foliar en la tarde' },
+                { id: 2, ghId: 'gh-1', product: 'Serenade ASO', target: 'Precedente Botrytis', date: '2026-07-25', phi: 0, notes: 'Biológico preventivo' }
+            ]
+        };
+
+        let appState = JSON.parse(localStorage.getItem('tomatePro_data')) || DEFAULT_DATA;
+        let pendingDeleteTarget = null;
+
+        // Toast System
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-rose-600' : 'bg-slate-800');
+            const icon = type === 'success' ? 'fa-circle-check' : (type === 'error' ? 'fa-triangle-exclamation' : 'fa-info-circle');
+            
+            toast.className = `${bgColor} text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span>${message}</span>`;
+            
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Calculate Vapor Pressure Deficit (VPD in kPa) for greenhouse climate management
+        function calculateVPD(tempC, rhPercent) {
+            if (!tempC || !rhPercent) return { vpd: 0, status: 'Normal', color: 'text-slate-600', bg: 'bg-slate-100' };
+            const svp = 0.61078 * Math.exp((17.27 * tempC) / (tempC + 237.3));
+            const vpd = svp * (1 - (rhPercent / 100));
+            const rounded = vpd.toFixed(2);
+
+            if (vpd < 0.4) {
+                return { vpd: rounded, status: 'Muy Bajo (Riesgo Hongos)', color: 'text-amber-700', bg: 'bg-amber-100' };
+            } else if (vpd >= 0.4 && vpd <= 1.2) {
+                return { vpd: rounded, status: 'Óptimo Transpiración', color: 'text-emerald-700', bg: 'bg-emerald-100' };
+            } else if (vpd > 1.2 && vpd <= 1.6) {
+                return { vpd: rounded, status: 'Estrés Moderado', color: 'text-amber-700', bg: 'bg-amber-100' };
+            } else {
+                return { vpd: rounded, status: 'Estrés Crítico (Cierre Estomas)', color: 'text-rose-700', bg: 'bg-rose-100' };
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('tomatePro_data', JSON.stringify(appState));
+            renderAll();
+        }
+
+        function promptResetData() {
+            openModal('resetDataModal');
+        }
+
+        function clearAllData() {
+            appState = { greenhouses: [], harvests: [], expenses: [], pesticides: [] };
+            saveData();
+            closeModal('resetDataModal');
+            showToast('Todos los datos fueron borrados.', 'info');
+        }
+
+        function restoreDemoData() {
+            appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
+            saveData();
+            closeModal('resetDataModal');
+            showToast('Datos de demostración restaurados.', 'success');
+        }
+
+        function switchTab(tabId) {
+            const views = ['dashboard', 'invernaderos', 'cosecha', 'finanzas', 'agronomia'];
+            views.forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+                const btn = document.getElementById(`nav-${v}`);
+                if (btn) {
+                    btn.classList.remove('text-greenhouse-600');
+                    btn.classList.add('text-slate-400');
+                }
+            });
+
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-400');
+                activeBtn.classList.add('text-greenhouse-600');
+            }
+
+            if (tabId === 'dashboard' && financialChart) financialChart.update();
+            if (tabId === 'cosecha' && harvestPieChart) harvestPieChart.update();
+            if (tabId === 'finanzas' && expensePieChart) updateExpensePieChart();
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+            populateGreenhouseDropdowns();
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function populateGreenhouseDropdowns() {
+            const dropdowns = ['harvest-gh-select', 'exp-gh-select', 'pest-gh-select'];
+            dropdowns.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (appState.greenhouses.length === 0) {
+                    el.innerHTML = `<option value="">-- Registra una Nave Primero --</option>`;
+                } else {
+                    el.innerHTML = appState.greenhouses.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+                }
+            });
+
+            // Populate Filter dropdowns
+            const harvestFilter = document.getElementById('harvest-filter-gh');
+            if (harvestFilter) {
+                harvestFilter.innerHTML = '<option value="ALL">Todas las Naves</option>' + 
+                    appState.greenhouses.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+            }
+        }
+
+        // Harvest Form Handlers
+        function openCreateHarvestModal() {
+            document.getElementById('harvestForm').reset();
+            document.getElementById('harvest-edit-id').value = '';
+            document.getElementById('harvest-modal-title').innerText = 'Registrar Cosecha y Merma';
+            document.getElementById('harvest-submit-btn').innerText = 'Guardar Registro de Cosecha';
+            openModal('harvestModal');
+        }
+
+        function openEditHarvestModal(id) {
+            const item = appState.harvests.find(h => h.id === id);
+            if (!item) return;
+            openModal('harvestModal');
+            document.getElementById('harvest-edit-id').value = item.id;
+            document.getElementById('harvest-modal-title').innerText = 'Editar Cosecha y Merma';
+            document.getElementById('harvest-submit-btn').innerText = 'Actualizar Cosecha';
+
+            document.getElementById('harvest-gh-select').value = item.ghId;
+            document.getElementById('harvest-kg-1ra').value = item.kg1ra;
+            document.getElementById('harvest-price-1ra').value = item.price1ra;
+            document.getElementById('harvest-kg-2da').value = item.kg2da;
+            document.getElementById('harvest-price-2da').value = item.price2da;
+            document.getElementById('harvest-kg-merma').value = item.kgMerma;
+            document.getElementById('harvest-merma-cause').value = item.mermaCause;
+            document.getElementById('harvest-buyer').value = item.buyer;
+        }
+
+        function handleSaveHarvest(e) {
+            e.preventDefault();
+            const editId = document.getElementById('harvest-edit-id').value;
+            const ghId = document.getElementById('harvest-gh-select').value || (appState.greenhouses[0] ? appState.greenhouses[0].id : 'gh-1');
+
+            const data = {
+                id: editId ? (isNaN(editId) ? editId : Number(editId)) : Date.now(),
+                ghId: ghId,
+                date: new Date().toISOString().split('T')[0],
+                kg1ra: parseFloat(document.getElementById('harvest-kg-1ra').value) || 0,
+                price1ra: parseFloat(document.getElementById('harvest-price-1ra').value) || 0,
+                kg2da: parseFloat(document.getElementById('harvest-kg-2da').value) || 0,
+                price2da: parseFloat(document.getElementById('harvest-price-2da').value) || 0,
+                kgMerma: parseFloat(document.getElementById('harvest-kg-merma').value) || 0,
+                mermaCause: document.getElementById('harvest-merma-cause').value,
+                buyer: document.getElementById('harvest-buyer').value || 'Venta Local'
+            };
+
+            if (editId) {
+                const idx = appState.harvests.findIndex(h => h.id == editId);
+                if (idx !== -1) appState.harvests[idx] = data;
+                showToast('Cosecha actualizada con éxito.');
+            } else {
+                appState.harvests.unshift(data);
+                showToast('Nueva cosecha guardada.');
+            }
+
+            saveData();
+            closeModal('harvestModal');
+        }
+
+        // Expense Form Handlers
+        function openCreateExpenseModal() {
+            document.getElementById('expenseForm').reset();
+            document.getElementById('expense-edit-id').value = '';
+            document.getElementById('expense-modal-title').innerText = 'Registrar Gasto de Cultivo';
+            document.getElementById('expense-submit-btn').innerText = 'Guardar Gasto';
+            openModal('expenseModal');
+        }
+
+        function openEditExpenseModal(id) {
+            const item = appState.expenses.find(e => e.id === id);
+            if (!item) return;
+            openModal('expenseModal');
+            document.getElementById('expense-edit-id').value = item.id;
+            document.getElementById('expense-modal-title').innerText = 'Editar Gasto de Cultivo';
+            document.getElementById('expense-submit-btn').innerText = 'Actualizar Gasto';
+
+            document.getElementById('exp-category').value = item.category;
+            document.getElementById('exp-amount').value = item.amount;
+            document.getElementById('exp-gh-select').value = item.ghId;
+            document.getElementById('exp-desc').value = item.desc;
+        }
+
+        function handleSaveExpense(e) {
+            e.preventDefault();
+            const editId = document.getElementById('expense-edit-id').value;
+
+            const data = {
+                id: editId ? (isNaN(editId) ? editId : Number(editId)) : Date.now(),
+                ghId: document.getElementById('exp-gh-select').value || 'gh-1',
+                category: document.getElementById('exp-category').value,
+                amount: parseFloat(document.getElementById('exp-amount').value) || 0,
+                desc: document.getElementById('exp-desc').value,
+                date: new Date().toISOString().split('T')[0]
+            };
+
+            if (editId) {
+                const idx = appState.expenses.findIndex(ex => ex.id == editId);
+                if (idx !== -1) appState.expenses[idx] = data;
+                showToast('Gasto actualizado.');
+            } else {
+                appState.expenses.unshift(data);
+                showToast('Gasto registrado.');
+            }
+
+            saveData();
+            closeModal('expenseModal');
+        }
+
+        // Pesticide Handlers
+        function openCreatePesticideModal() {
+            document.getElementById('pesticideForm').reset();
+            document.getElementById('pest-edit-id').value = '';
+            document.getElementById('pesticide-modal-title').innerText = 'Aplicación de Agroquímicos';
+            document.getElementById('pest-submit-btn').innerText = 'Guardar y Activar Carencia';
+            openModal('pesticideModal');
+        }
+
+        function openEditPesticideModal(id) {
+            const item = appState.pesticides.find(p => p.id === id);
+            if (!item) return;
+            openModal('pesticideModal');
+            document.getElementById('pest-edit-id').value = item.id;
+            document.getElementById('pesticide-modal-title').innerText = 'Editar Aplicación Agroquímica';
+            document.getElementById('pest-submit-btn').innerText = 'Actualizar Aplicación';
+
+            document.getElementById('pest-product').value = item.product;
+            document.getElementById('pest-target').value = item.target;
+            document.getElementById('pest-phi').value = item.phi;
+            document.getElementById('pest-gh-select').value = item.ghId;
+            document.getElementById('pest-notes').value = item.notes || '';
+        }
+
+        function handleSavePesticide(e) {
+            e.preventDefault();
+            const editId = document.getElementById('pest-edit-id').value;
+
+            const data = {
+                id: editId ? (isNaN(editId) ? editId : Number(editId)) : Date.now(),
+                ghId: document.getElementById('pest-gh-select').value || 'gh-1',
+                product: document.getElementById('pest-product').value,
+                target: document.getElementById('pest-target').value,
+                phi: parseInt(document.getElementById('pest-phi').value) || 0,
+                notes: document.getElementById('pest-notes').value,
+                date: new Date().toISOString().split('T')[0]
+            };
+
+            if (editId) {
+                const idx = appState.pesticides.findIndex(p => p.id == editId);
+                if (idx !== -1) appState.pesticides[idx] = data;
+                showToast('Tratamiento fitosanitario actualizado.');
+            } else {
+                appState.pesticides.unshift(data);
+                showToast('Aplicación guardada y contador activado.');
+            }
+
+            saveData();
+            closeModal('pesticideModal');
+        }
+
+        // Greenhouse Handlers
+        function openCreateGreenhouseModal() {
+            document.getElementById('greenhouseForm').reset();
+            document.getElementById('gh-edit-id').value = '';
+            document.getElementById('gh-modal-title').innerText = 'Registrar Nueva Nave';
+            document.getElementById('gh-submit-btn').innerText = 'Crear Nave';
+            openModal('addGreenhouseModal');
+        }
+
+        function openEditGreenhouseModal(id) {
+            const item = appState.greenhouses.find(g => g.id === id);
+            if (!item) return;
+            openModal('addGreenhouseModal');
+            document.getElementById('gh-edit-id').value = item.id;
+            document.getElementById('gh-modal-title').innerText = 'Editar Nave / Invernadero';
+            document.getElementById('gh-submit-btn').innerText = 'Actualizar Nave';
+
+            document.getElementById('gh-name').value = item.name;
+            document.getElementById('gh-variety').value = item.variety;
+            document.getElementById('gh-area').value = item.area;
+            document.getElementById('gh-stage').value = item.stage;
+            document.getElementById('gh-plants').value = item.plants;
+            document.getElementById('gh-temp').value = item.temp || 25.0;
+            document.getElementById('gh-humidity').value = item.humidity || 70;
+            document.getElementById('gh-ph').value = item.ph || 6.0;
+            document.getElementById('gh-ec').value = item.ec || 2.5;
+        }
+
+        function handleSaveGreenhouse(e) {
+            e.preventDefault();
+            const editId = document.getElementById('gh-edit-id').value;
+
+            const data = {
+                id: editId ? editId : ('gh-' + Date.now()),
+                name: document.getElementById('gh-name').value,
+                variety: document.getElementById('gh-variety').value,
+                area: parseFloat(document.getElementById('gh-area').value) || 0,
+                plants: parseInt(document.getElementById('gh-plants').value) || 0,
+                stage: document.getElementById('gh-stage').value,
+                temp: parseFloat(document.getElementById('gh-temp').value) || 25.0,
+                humidity: parseInt(document.getElementById('gh-humidity').value) || 70,
+                ph: parseFloat(document.getElementById('gh-ph').value) || 6.0,
+                ec: parseFloat(document.getElementById('gh-ec').value) || 2.5
+            };
+
+            if (editId) {
+                const idx = appState.greenhouses.findIndex(g => g.id === editId);
+                if (idx !== -1) appState.greenhouses[idx] = { ...appState.greenhouses[idx], ...data };
+                showToast('Invernadero actualizado.');
+            } else {
+                appState.greenhouses.push(data);
+                showToast('Nave creada exitosamente.');
+            }
+
+            saveData();
+            closeModal('addGreenhouseModal');
+        }
+
+        function requestDelete(type, id, name) {
+            pendingDeleteTarget = { type, id };
+            document.getElementById('delete-modal-title').innerText = `¿Eliminar ${type}?`;
+            document.getElementById('delete-modal-desc').innerText = `Estás a punto de borrar "${name}". Esta acción no se puede deshacer.`;
+            openModal('deleteConfirmModal');
+        }
+
+        function executeDeleteAction() {
+            if (!pendingDeleteTarget) return;
+            const { type, id } = pendingDeleteTarget;
+
+            if (type === 'Cosecha') appState.harvests = appState.harvests.filter(h => h.id !== id);
+            else if (type === 'Gasto') appState.expenses = appState.expenses.filter(e => e.id !== id);
+            else if (type === 'Aplicación Fitosanitaria') appState.pesticides = appState.pesticides.filter(p => p.id !== id);
+            else if (type === 'Invernadero') appState.greenhouses = appState.greenhouses.filter(g => g.id !== id);
+
+            pendingDeleteTarget = null;
+            closeModal('deleteConfirmModal');
+            saveData();
+            showToast(`${type} eliminado.`, 'info');
+        }
+
+        function calculateBreakEven() {
+            const costs = parseFloat(document.getElementById('calc-costs').value) || 0;
+            const kg = parseFloat(document.getElementById('calc-kg').value) || 1;
+            const priceMin = (costs / kg).toFixed(2);
+            document.getElementById('calc-result').innerText = `$${priceMin} / kg`;
+        }
+
+        function calculateTankDose() {
+            const cap = parseFloat(document.getElementById('tank-capacity').value) || 0;
+            const rate = parseFloat(document.getElementById('tank-dose-rate').value) || 0;
+            const unit = document.getElementById('tank-unit').value;
+            const total = cap * rate;
+
+            if (unit === 'ml/L') {
+                const liters = (total / 1000).toFixed(2);
+                document.getElementById('tank-result').innerText = `${total.toLocaleString()} ml (${liters} L)`;
+            } else {
+                const kg = (total / 1000).toFixed(2);
+                document.getElementById('tank-result').innerText = `${total.toLocaleString()} g (${kg} kg)`;
+            }
+        }
+
+        // Render Dashboard Metrics & Cards
+        function renderDashboard() {
+            let totalKg = 0;
+            let totalSales = 0;
+            let totalMerma = 0;
+
+            appState.harvests.forEach(h => {
+                totalKg += (h.kg1ra + h.kg2da);
+                totalSales += (h.kg1ra * h.price1ra) + (h.kg2da * h.price2da);
+                totalMerma += h.kgMerma;
+            });
+
+            let totalExpense = appState.expenses.reduce((sum, e) => sum + e.amount, 0);
+            let netProfit = totalSales - totalExpense;
+            let totalArea = appState.greenhouses.reduce((sum, g) => sum + g.area, 0);
+            let yieldPerM2 = totalArea > 0 ? (totalKg / totalArea).toFixed(1) : 0;
+            let avgPrice = totalKg > 0 ? (totalSales / totalKg).toFixed(1) : 0;
+            let lossPercent = (totalKg + totalMerma) > 0 ? ((totalMerma / (totalKg + totalMerma)) * 100).toFixed(1) : 0;
+            let roi = totalExpense > 0 ? ((netProfit / totalExpense) * 100).toFixed(1) : 0;
+
+            document.getElementById('dash-harvest-total').innerHTML = `${totalKg.toLocaleString()} <span class="text-xs font-normal text-slate-500">kg</span>`;
+            document.getElementById('dash-yield-m2').innerHTML = `<i class="fa-solid fa-chart-simple"></i> ${yieldPerM2} kg/m² rend.`;
+            document.getElementById('dash-sales-total').innerText = `$${totalSales.toLocaleString('es-MX')}`;
+            document.getElementById('dash-avg-price').innerHTML = `Precio Prom: <span class="font-bold text-slate-700">$${avgPrice}/kg</span>`;
+            document.getElementById('dash-loss-total').innerHTML = `${totalMerma.toLocaleString()} <span class="text-xs font-normal text-slate-500">kg</span>`;
+            document.getElementById('dash-loss-percent').innerText = `${lossPercent}% de la producción`;
+            document.getElementById('dash-net-profit').innerText = `$${netProfit.toLocaleString('es-MX')}`;
+            document.getElementById('dash-roi-est').innerText = `ROI Estimado: ${roi}%`;
+
+            renderDynamicAlerts(totalMerma);
+
+            const container = document.getElementById('dash-greenhouse-list');
+            if (appState.greenhouses.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 col-span-2 text-center py-2">No hay naves registradas. Haz clic en "+ Nueva Nave".</p>`;
+            } else {
+                container.innerHTML = appState.greenhouses.map(g => {
+                    const vpdInfo = calculateVPD(g.temp, g.humidity);
+                    return `
+                        <div class="p-3.5 rounded-xl border border-slate-100 bg-slate-50/80 flex items-center justify-between">
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="font-extrabold text-xs text-slate-800">${g.name}</span>
+                                    <span class="text-[9px] font-bold ${vpdInfo.bg} ${vpdInfo.color} px-1.5 py-0.2 rounded">DPV: ${vpdInfo.vpd} kPa</span>
+                                </div>
+                                <span class="text-[10px] text-slate-500 font-medium block mt-0.5">${g.variety} • Etapa: ${g.stage}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-bold text-slate-700 block">${g.temp}°C | ${g.humidity}% HR</span>
+                                <span class="text-[10px] text-greenhouse-700 font-semibold">CE: ${g.ec} mS/cm</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function renderDynamicAlerts(totalMerma) {
+            const alertsContainer = document.getElementById('dash-alerts-container');
+            if (!alertsContainer) return;
+
+            let alertHtml = '';
+            const today = new Date();
+            const activePhis = [];
+
+            appState.pesticides.forEach(p => {
+                const appDate = new Date(p.date);
+                const safeDate = new Date(appDate);
+                safeDate.setDate(safeDate.getDate() + p.phi);
+                const daysLeft = Math.ceil((safeDate - today) / (1000 * 60 * 60 * 24));
+                if (daysLeft >= 0 && p.phi > 0) {
+                    const gh = appState.greenhouses.find(g => g.id === p.ghId);
+                    activePhis.push({ ...p, daysLeft, ghName: gh ? gh.name : 'Nave' });
+                }
+            });
+
+            if (activePhis.length > 0) {
+                const phiText = activePhis.map(p => `<strong>${p.ghName}</strong> (${p.product}: ${p.daysLeft}d restantes)`).join(', ');
+                alertHtml += `
+                    <div class="bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-transparent border-l-4 border-purple-600 p-3.5 rounded-r-xl bg-white shadow-sm flex items-start gap-3">
+                        <div class="text-purple-600 text-lg mt-0.5">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-slate-900 text-xs">Alerta Fitosanitaria - Días de Carencia Activos</h4>
+                            <p class="text-[11px] text-slate-600 mt-0.5">Restricción de cosecha activa en: ${phiText}. Evita cortar fruto para garantizar inocuidad.</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (appState.harvests.length > 0 && totalMerma > 0) {
+                const causeStats = {};
+                appState.harvests.forEach(h => {
+                    if (h.kgMerma > 0 && h.mermaCause && h.mermaCause !== 'Ninguna') {
+                        if (!causeStats[h.mermaCause]) causeStats[h.mermaCause] = { kg: 0, lossMoney: 0 };
+                        causeStats[h.mermaCause].kg += h.kgMerma;
+                        causeStats[h.mermaCause].lossMoney += (h.kgMerma * (h.price1ra || 20));
+                    }
+                });
+
+                let topCause = null;
+                let maxKg = 0;
+                Object.keys(causeStats).forEach(cause => {
+                    if (causeStats[cause].kg > maxKg) {
+                        maxKg = causeStats[cause].kg;
+                        topCause = { name: cause, ...causeStats[cause] };
+                    }
+                });
+
+                if (topCause) {
+                    alertHtml += `
+                        <div class="bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border-l-4 border-rose-500 p-3.5 rounded-r-xl bg-white shadow-sm flex items-start gap-3">
+                            <div class="text-rose-600 text-lg mt-0.5">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="font-bold text-slate-900 text-xs">Alerta de Pérdida Crítica</h4>
+                                    <span class="text-[9px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">${topCause.kg} kg mermados</span>
+                                </div>
+                                <p class="text-[11px] text-slate-600 mt-0.5">
+                                    Pérdida principal acumulada por <strong>${topCause.name}</strong> (~<strong class="text-rose-600">$${topCause.lossMoney.toLocaleString('es-MX')} MXN</strong>).
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else if (appState.harvests.length === 0 && activePhis.length === 0) {
+                alertHtml = `
+                    <div class="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-l-4 border-emerald-500 p-3.5 rounded-r-xl bg-white shadow-sm flex items-start gap-3">
+                        <div class="text-emerald-600 text-lg mt-0.5"><i class="fa-solid fa-circle-check"></i></div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-slate-900 text-xs">Sistema TomatePro Listo</h4>
+                            <p class="text-[11px] text-slate-600 mt-0.5">Comienza a ingresar tus cosechas y gastos para habilitar las alertas agronómicas en tiempo real.</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            alertsContainer.innerHTML = alertHtml;
+        }
+
+        function renderGreenhousesView() {
+            const container = document.getElementById('full-greenhouse-container');
+            if (appState.greenhouses.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white p-6 rounded-2xl text-center space-y-2 border border-slate-100">
+                        <i class="fa-solid fa-warehouse text-3xl text-slate-300"></i>
+                        <p class="text-xs font-bold text-slate-600">No hay naves registradas</p>
+                        <button onclick="openCreateGreenhouseModal()" class="mt-2 bg-slate-900 text-white text-xs font-bold px-3.5 py-2 rounded-xl">Crear Nave Ahora</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = appState.greenhouses.map(g => {
+                const vpdInfo = calculateVPD(g.temp, g.humidity);
+                return `
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="bg-greenhouse-100 text-greenhouse-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase">${g.stage}</span>
+                                    <span class="text-[10px] font-bold ${vpdInfo.bg} ${vpdInfo.color} px-2 py-0.5 rounded-full">DPV: ${vpdInfo.vpd} kPa (${vpdInfo.status})</span>
+                                </div>
+                                <h3 class="font-black text-slate-800 text-base mt-1.5">${g.name}</h3>
+                                <p class="text-xs text-slate-400 font-medium">${g.variety} • ${g.area} m² • ${g.plants.toLocaleString()} Plantas</p>
+                            </div>
+                            
+                            <div class="flex items-center gap-1">
+                                <button onclick="openEditGreenhouseModal('${g.id}')" class="p-2 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition" title="Editar Nave">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="requestDelete('Invernadero', '${g.id}', '${g.name}')" class="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition" title="Eliminar Nave">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-4 gap-2 bg-slate-50 p-2.5 rounded-xl text-center">
+                            <div>
+                                <span class="text-[9px] text-slate-400 font-bold block uppercase">TEMP</span>
+                                <span class="text-xs font-extrabold text-slate-800">${g.temp}°C</span>
+                            </div>
+                            <div>
+                                <span class="text-[9px] text-slate-400 font-bold block uppercase">HUMEDAD</span>
+                                <span class="text-xs font-extrabold text-slate-800">${g.humidity}%</span>
+                            </div>
+                            <div>
+                                <span class="text-[9px] text-slate-400 font-bold block uppercase">pH SUELO</span>
+                                <span class="text-xs font-extrabold text-slate-800">${g.ph}</span>
+                            </div>
+                            <div>
+                                <span class="text-[9px] text-slate-400 font-bold block uppercase">CE (SALES)</span>
+                                <span class="text-xs font-extrabold text-greenhouse-700">${g.ec}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button onclick="openCreateHarvestModal()" class="flex-1 bg-tomato-50 hover:bg-tomato-100 text-tomato-700 font-bold py-2 rounded-xl text-xs border border-tomato-200 transition">
+                                <i class="fa-solid fa-basket-shopping mr-1"></i> Cosechar
+                            </button>
+                            <button onclick="openCreatePesticideModal()" class="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2 rounded-xl text-xs border border-purple-200 transition">
+                                <i class="fa-solid fa-spray-can mr-1"></i> Fumigar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderHarvestView() {
+            const list = document.getElementById('harvest-log-list');
+            const search = (document.getElementById('harvest-search')?.value || '').toLowerCase();
+            const filterGh = document.getElementById('harvest-filter-gh')?.value || 'ALL';
+
+            let filtered = appState.harvests.filter(h => {
+                const matchGh = filterGh === 'ALL' || h.ghId === filterGh;
+                const matchQuery = (h.buyer || '').toLowerCase().includes(search) || 
+                                   (h.mermaCause || '').toLowerCase().includes(search);
+                return matchGh && matchQuery;
+            });
+
+            document.getElementById('harvest-count').innerText = `${filtered.length} registros`;
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<p class="p-4 text-center text-xs text-slate-400">No hay cosechas coincidentes.</p>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(h => {
+                const gh = appState.greenhouses.find(g => g.id === h.ghId) || { name: 'Nave' };
+                const subtotal = (h.kg1ra * h.price1ra) + (h.kg2da * h.price2da);
+                return `
+                    <div class="p-3.5 flex justify-between items-center gap-2 hover:bg-slate-50 transition">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-slate-800 text-xs">${gh.name}</span>
+                                <span class="text-[10px] text-slate-400">${h.date}</span>
+                            </div>
+                            <div class="text-[11px] text-slate-600 mt-0.5">
+                                <span>1ra: <strong>${h.kg1ra} kg</strong> ($${h.price1ra}/kg)</span> | 
+                                <span>2da: <strong>${h.kg2da} kg</strong></span> | 
+                                <span class="text-tomato-600 font-bold">Merma: ${h.kgMerma} kg (${h.mermaCause})</span>
+                            </div>
+                            <span class="text-[10px] text-slate-400">Comprador: ${h.buyer}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs sm:text-sm font-black text-emerald-600">+$${subtotal.toLocaleString()}</span>
+                            <div class="flex items-center">
+                                <button onclick="openEditHarvestModal(${h.id})" class="p-1.5 text-slate-400 hover:text-blue-600" title="Editar">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="requestDelete('Cosecha', ${h.id}, 'Cosecha del ${h.date}')" class="p-1.5 text-slate-400 hover:text-rose-600" title="Eliminar">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderExpensesView() {
+            const list = document.getElementById('expense-log-list');
+            const search = (document.getElementById('expense-search')?.value || '').toLowerCase();
+            const filterCat = document.getElementById('expense-filter-cat')?.value || 'ALL';
+
+            let salesSum = 0;
+            appState.harvests.forEach(h => salesSum += (h.kg1ra * h.price1ra) + (h.kg2da * h.price2da));
+            let expSum = appState.expenses.reduce((s, e) => s + e.amount, 0);
+
+            document.getElementById('fin-sales').innerText = `$${salesSum.toLocaleString('es-MX')}`;
+            document.getElementById('fin-expenses').innerText = `$${expSum.toLocaleString('es-MX')}`;
+            document.getElementById('fin-balance').innerText = `$${(salesSum - expSum).toLocaleString('es-MX')}`;
+
+            let filtered = appState.expenses.filter(e => {
+                const matchCat = filterCat === 'ALL' || e.category === filterCat;
+                const matchQuery = (e.desc || '').toLowerCase().includes(search) || (e.category || '').toLowerCase().includes(search);
+                return matchCat && matchQuery;
+            });
+
+            document.getElementById('expense-count').innerText = `${filtered.length} registros`;
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<p class="p-4 text-center text-xs text-slate-400">No hay gastos coincidentes.</p>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(e => {
+                const gh = appState.greenhouses.find(g => g.id === e.ghId) || { name: 'General' };
+                return `
+                    <div class="p-3 flex justify-between items-center hover:bg-slate-50 transition">
+                        <div>
+                            <span class="font-bold text-slate-800 text-xs block">${e.desc}</span>
+                            <span class="text-[10px] text-slate-400">${e.category} • ${gh.name} • ${e.date}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="font-black text-xs text-rose-600">-$${e.amount.toLocaleString()}</span>
+                            <div class="flex items-center">
+                                <button onclick="openEditExpenseModal(${e.id})" class="p-1.5 text-slate-400 hover:text-blue-600" title="Editar">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="requestDelete('Gasto', ${e.id}, '${e.desc}')" class="p-1.5 text-slate-400 hover:text-rose-600" title="Eliminar">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAgronomyView() {
+            const phiContainer = document.getElementById('active-phi-list');
+            const logContainer = document.getElementById('pest-log-list');
+            document.getElementById('pest-log-count').innerText = `${appState.pesticides.length} aplicados`;
+
+            const today = new Date();
+            let phiHtml = '';
+
+            appState.pesticides.forEach(p => {
+                const appDate = new Date(p.date);
+                const safeDate = new Date(appDate);
+                safeDate.setDate(safeDate.getDate() + p.phi);
+
+                const daysLeft = Math.ceil((safeDate - today) / (1000 * 60 * 60 * 24));
+                const gh = appState.greenhouses.find(g => g.id === p.ghId) || { name: 'Nave' };
+
+                if (daysLeft >= 0 && p.phi > 0) {
+                    phiHtml += `
+                        <div class="bg-purple-800/80 p-2.5 rounded-xl border border-purple-700 flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-xs text-white block">${p.product} (${gh.name})</span>
+                                <span class="text-[10px] text-purple-200">Objetivo: ${p.target} • Aplicado: ${p.date}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-amber-400 text-slate-900 text-xs font-black px-2 py-0.5 rounded-md">${daysLeft} Días Restantes</span>
+                                <span class="text-[9px] text-purple-200 block mt-0.5">Apto cosecha: ${safeDate.toISOString().split('T')[0]}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            phiContainer.innerHTML = phiHtml || '<p class="text-xs text-purple-200">Sin intervalos de carencia activos. Fruto liberado para cosecha.</p>';
+
+            if (appState.pesticides.length === 0) {
+                logContainer.innerHTML = `<p class="p-4 text-center text-xs text-slate-400">No hay aplicaciones de fitosanitarios registradas.</p>`;
+                return;
+            }
+
+            logContainer.innerHTML = appState.pesticides.map(p => {
+                const gh = appState.greenhouses.find(g => g.id === p.ghId) || { name: 'Nave' };
+                return `
+                    <div class="p-3 flex justify-between items-center hover:bg-slate-50 transition">
+                        <div>
+                            <span class="font-bold text-slate-800 text-xs block">${p.product} - ${p.target}</span>
+                            <span class="text-[10px] text-slate-400">${gh.name} • Dosis: ${p.notes || 'N/A'}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="text-right">
+                                <span class="text-xs font-bold text-purple-700 block">${p.phi} días PHI</span>
+                                <span class="text-[10px] text-slate-400">${p.date}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <button onclick="openEditPesticideModal(${p.id})" class="p-1.5 text-slate-400 hover:text-blue-600" title="Editar">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="requestDelete('Aplicación Fitosanitaria', ${p.id}, '${p.product}')" class="p-1.5 text-slate-400 hover:text-rose-600" title="Eliminar">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Export data to CSV File
+        function exportToCSV(type) {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            if (type === 'harvests') {
+                csvContent += "ID,NaveID,Fecha,Kg1ra,Precio1ra,Kg2da,Precio2da,KgMerma,CausaMerma,Comprador\n";
+                appState.harvests.forEach(h => {
+                    csvContent += `"${h.id}","${h.ghId}","${h.date}",${h.kg1ra},${h.price1ra},${h.kg2da},${h.price2da},${h.kgMerma},"${h.mermaCause}","${h.buyer}"\n`;
+                });
+            } else {
+                csvContent += "ID,NaveID,Fecha,Categoria,Monto,Descripcion\n";
+                appState.expenses.forEach(e => {
+                    csvContent += `"${e.id}","${e.ghId}","${e.date}","${e.category}",${e.amount},"${e.desc}"\n`;
+                });
+            }
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `TomatePro_${type}_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            showToast('Archivo CSV descargado.');
+        }
+
+        function downloadJSONBackup() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `TomatePro_Backup_${new Date().toISOString().split('T')[0]}.json`);
+            dlAnchorElem.click();
+            dlAnchorElem.remove();
+            showToast('Respaldo JSON descargado.');
+        }
+
+        function importJSONBackup(event) {
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed && parsed.greenhouses && parsed.harvests) {
+                        appState = parsed;
+                        saveData();
+                        closeModal('resetDataModal');
+                        showToast('Respaldo restaurado con éxito.');
+                    } else {
+                        showToast('El archivo JSON no tiene el formato correcto.', 'error');
+                    }
+                } catch(err) {
+                    showToast('Error al leer el archivo JSON.', 'error');
+                }
+            };
+            if(event.target.files[0]) fileReader.readAsText(event.target.files[0]);
+        }
+
+        // Charts Engine
+        let financialChart = null;
+        let harvestPieChart = null;
+        let expensePieChart = null;
+
+        function getWeeklyFinancialData() {
+            const allRecords = [
+                ...appState.harvests.map(h => ({ date: new Date(h.date), sales: (h.kg1ra * h.price1ra) + (h.kg2da * h.price2da), expense: 0 })),
+                ...appState.expenses.map(e => ({ date: new Date(e.date), sales: 0, expense: e.amount }))
+            ].filter(r => !isNaN(r.date.getTime()));
+
+            if (allRecords.length === 0) {
+                return { labels: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'], sales: [0, 0, 0, 0], expenses: [0, 0, 0, 0] };
+            }
+
+            let minTime = Math.min(...allRecords.map(r => r.date.getTime()));
+            let minDate = new Date(minTime);
+            let day = minDate.getDay();
+            let diffToMonday = (day === 0 ? -6 : 1) - day;
+            let startDate = new Date(minDate);
+            startDate.setDate(minDate.getDate() + diffToMonday);
+            startDate.setHours(0, 0, 0, 0);
+
+            const weeklyData = {};
+            allRecords.forEach(r => {
+                const diffDays = Math.floor((r.date - startDate) / (1000 * 60 * 60 * 24));
+                const weekIdx = Math.max(0, Math.floor(diffDays / 7)) + 1;
+                if (!weeklyData[weekIdx]) weeklyData[weekIdx] = { sales: 0, expense: 0 };
+                weeklyData[weekIdx].sales += r.sales;
+                weeklyData[weekIdx].expense += r.expense;
+            });
+
+            const maxWeek = Math.max(4, ...Object.keys(weeklyData).map(Number));
+            const labels = [];
+            const sales = [];
+            const expenses = [];
+
+            for (let w = 1; w <= maxWeek; w++) {
+                labels.push(`Semana ${w}`);
+                sales.push(weeklyData[w] ? weeklyData[w].sales : 0);
+                expenses.push(weeklyData[w] ? weeklyData[w].expense : 0);
+            }
+
+            return { labels, sales, expenses };
+        }
+
+        function initCharts() {
+            // 1. Weekly Financial Chart
+            const ctx1 = document.getElementById('financialChart').getContext('2d');
+            const initialFinData = getWeeklyFinancialData();
+
+            financialChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: initialFinData.labels,
+                    datasets: [
+                        { label: 'Ventas ($)', data: initialFinData.sales, backgroundColor: '#22c55e', borderRadius: 6 },
+                        { label: 'Gastos ($)', data: initialFinData.expenses, backgroundColor: '#f43f5e', borderRadius: 6 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } },
+                    scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+                }
+            });
+
+            // 2. Harvest Breakdown Pie
+            const ctx2 = document.getElementById('harvestPieChart').getContext('2d');
+            let k1 = 0, k2 = 0, km = 0;
+            appState.harvests.forEach(h => { k1 += h.kg1ra; k2 += h.kg2da; km += h.kgMerma; });
+
+            harvestPieChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['1ra Calidad', '2da Calidad', 'Merma (Pérdida)'],
+                    datasets: [{
+                        data: [k1, k2, km],
+                        backgroundColor: ['#16a34a', '#f59e0b', '#f43f5e']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } }
+                }
+            });
+
+            // 3. Expense Breakdown Chart
+            const ctx3 = document.getElementById('expensePieChart').getContext('2d');
+            expensePieChart = new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{ data: [], backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#10b981', '#64748b'] }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { font: { size: 10 } } } }
+                }
+            });
+            updateExpensePieChart();
+        }
+
+        function updateExpensePieChart() {
+            if (!expensePieChart) return;
+            const catTotals = {};
+            appState.expenses.forEach(e => {
+                catTotals[e.category] = (catTotals[e.category] || 0) + e.amount;
+            });
+            expensePieChart.data.labels = Object.keys(catTotals);
+            expensePieChart.data.datasets[0].data = Object.values(catTotals);
+            expensePieChart.update();
+        }
+
+        function updateCharts() {
+            if (financialChart) {
+                const finData = getWeeklyFinancialData();
+                financialChart.data.labels = finData.labels;
+                financialChart.data.datasets[0].data = finData.sales;
+                financialChart.data.datasets[1].data = finData.expenses;
+                financialChart.update();
+            }
+
+            if (harvestPieChart) {
+                let k1 = 0, k2 = 0, km = 0;
+                appState.harvests.forEach(h => { k1 += h.kg1ra; k2 += h.kg2da; km += h.kgMerma; });
+                harvestPieChart.data.datasets[0].data = [k1 || 0, k2 || 0, km || 0];
+                harvestPieChart.update();
+            }
+
+            updateExpensePieChart();
+        }
+
+        function renderAll() {
+            renderDashboard();
+            renderGreenhousesView();
+            renderHarvestView();
+            renderExpensesView();
+            renderAgronomyView();
+            updateCharts();
+            calculateBreakEven();
+            calculateTankDose();
+        }
+
+        window.onload = function() {
+            initCharts();
+            renderAll();
+        };
+    </script>
+</body>
+</html>
